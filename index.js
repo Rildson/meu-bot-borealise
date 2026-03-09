@@ -2,37 +2,34 @@ const express = require('express');
 const { io } = require('socket.io-client');
 const app = express();
 
-// CORREÇÃO PARA O RENDER: O servidor precisa dessa porta para não dar erro de "Deploy"
+// Mantém o servidor do Render vivo
 const PORT = process.env.PORT || 10000;
-app.get('/', (req, res) => res.send('Bot Online - Woot + Fila Ativados'));
+app.get('/', (req, res) => res.send('Bot Online - Fila de DJ Ativada'));
 app.listen(PORT, () => console.log(`Servidor rodando na porta ${PORT}`));
 
 const socket = io('https://prod.borealise.com', {
   path: '/ws',
-  transports: ['websocket'],
-  auth: { token: process.env.BOREALISE_TOKEN } // Pega o token da variável que você configurou
+  transports: ['polling', 'websocket'], // Polling ajuda a evitar o "websocket error"
+  auth: { token: process.env.BOREALISE_TOKEN }
 });
 
-// Função para votar Woot e entrar na fila
-const participar = () => {
-  console.log('🎵 Música nova: Votando Woot...');
-  socket.emit('room:vote', { direction: 1 }); // Dá o voto positivo
-  
+// Função apenas para entrar na fila
+const entrarNaFila = () => {
   console.log('🎧 Tentando entrar na fila de DJ...');
-  socket.emit('room:queue:join'); // Entra na fila automaticamente
+  socket.emit('room:queue:join'); // Comando para virar DJ
 };
 
 socket.on('connect', () => {
-  console.log('🚀 SUCESSO! Conectado no Render.');
+  console.log('🚀 Conectado no Render! Entrando na sala e na fila...');
   socket.emit('room:join', { slug: 'mib' }); // Entra na sala mib
-  socket.emit('room:queue:join'); // Tenta entrar na fila logo ao logar
+  entrarNaFila();
 });
 
-// Toda vez que a música mudar (advance), ele vota e reforça a fila
+// Quando a música mudar, ele garante que você continue na fila ou tente entrar
 socket.on('advance', () => {
-  participar();
+  entrarNaFila();
 });
 
 socket.on('connect_error', (err) => {
-  console.log('⚠️ Erro de conexão: ' + err.message);
+  console.log('⚠️ Erro de conexão: ' + err.message); // Onde aparece o websocket error
 });
